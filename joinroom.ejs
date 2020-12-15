@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    <!--    {{&#45;&#45;        <link href="{{ asset('css/bootstrap.css') }}" rel="stylesheet">&#45;&#45;}}-->
+    <script src="<%= baseURL %>/socket.io/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <!-- jQuery and JS bundle w/ Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
+
+    <title>Catie</title>
+    <style type="text/css">
+          body {
+            background: rgb(33,42,104);
+              background: linear-gradient(180deg, rgba(33,42,104,1) 0%, rgba(36,56,127,1) 42%, rgba(94,169,219,1) 100%);
+              background-repeat: no-repeat;
+              min-width: 100%;
+                min-height: 100vh;
+          }
+    </style>
+</head>
+<body  class="text-center ">
+<div id="app" class="container-fluid">
+    <div class="row mt-5 mb-5 col-12">
+        <div class="col-4">
+            <figure class="figure">
+                <img src="/Logo_CATIE_CMJN.png" class="figure-img img-fluid rounded" alt="A generic square placeholder image with rounded corners in a figure.">
+                <figcaption class="figure-caption"><h2>Journée Cohésion de Noël 2020</h2></figcaption>
+            </figure>
+        </div>
+        <div class="col-4 offset-4">
+            <figure class="figure">
+                <img src="/Logo_QPUC.png" class="figure-img img-fluid rounded" alt="A generic square placeholder image with rounded corners in a figure.">
+                
+            </figure>
+        </div>
+    </div>
+    <div v-if="gamestarted === false" class="row mt-5 "> 
+        <div  class="col-4 offset-4 text-center">
+            <input type="hidden" id="roomid" value=<%= roomid %>>
+
+            <ul id="players" v-if="submited" class="list-group">
+                <li class="list-group-item">{{pseudo}}</li>
+            </ul>
+            <form v-on:submit="showList" v-else  action="" method="">
+                <input v-model="pseudo" type="text" name="pseudo">
+                <button type="submit" class="btn btn-block btn-primary mb-2">Join room</button>
+            </form>
+
+
+        </div>
+    </div>
+    <div  v-if="gamestarted" class="row mt-5 ">
+        <div  class="col-10 text-center">
+            <div class="card text-center">
+                <div class="card-header">
+                    Theme : {{ t_title }}
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" style="width: 100%;">
+                            <span class="sr-only"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title" > Q no {{ qindex }} : {{ q_intitule }}</h5>
+                    <div v-if="showResults === false" class="input-group ">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"> -> </span>
+                        </div>
+                        <input type="text" class="form-control" v-model="u_answer" >
+                    </div>
+                    <div v-if="showResults === true" >
+                        <p>Réponse attendue : {{ q_expAns }} </p>
+                        <table class="table table-striped">
+                            <thead>
+                            <tr>
+                                <th scope="col" v-for="user in v_users" >
+                                    {{ user.pseudo }}
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td v-for="rep in v_reps">
+                                    {{ rep.text }}
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+<script>
+    $(function () {
+        var gSocket = io({
+            transports: ['websocket']
+        });
+        var room = $("#roomid").val();
+        var app = new Vue({
+            el: '#app',
+            data: {
+                qindex : 0 ,
+                submited : false,
+                pseudo: 'lorem',
+                gamestarted : false,
+                questions : [],
+                q_intitule : "", q_expAns : "",
+                u_answer : "",
+                t_title : "",
+                showResults : false,
+                usersAnswers : {},
+                v_users : [],
+                v_reps : []
+            },
+            methods : {
+                showList : function (e){
+                    e.preventDefault();
+                    console.log("joining room");
+                    gSocket.emit('join room',{
+                        roomid : room,
+                        user : {
+                            socketid :gSocket.id ,
+                            pseudo : this.pseudo,
+                            answerscheck : false
+                        }
+                    });
+
+                    gSocket.emit('getusinroom',{
+                        roomid : room,
+                        socketid: gSocket.id
+                    });
+
+                    this.submited = true;
+                }
+            }
+        });
+
+        //var usersAnswers;
+        
+
+        gSocket.on('connect', function (socket) {
+            console.log("connected socket " + gSocket.id );
+
+
+
+            gSocket.on('usinroom', function (users) {
+                console.log("Here  "+users);
+                //récuper les user execep this socket
+                users = users.filter(item => item.socketid !== gSocket.id);
+                // var here = users.splice(users.findIndex(v => v.socketid === gSocket.id),1);
+                users.forEach((element) => {
+                    console.log(" socket id : "+element.socketid + " pseudo : " +element.pseudo);
+                    $('#players').append($('<li class='+element.socketid+'>').text(element.pseudo));
+                });
+            });
+
+            gSocket.on('joining', function (user) {
+                console.log("joining  "+user);
+                $('#players').append($('<li class='+user.socketid+'>').text(user.pseudo));
+            });
+
+            gSocket.on('leaving', function (user) {
+                //receiving user socket id
+                console.log("leaving : "+user);
+                var socketIDclass = '.'+user;
+                $(socketIDclass).remove();
+            });
+
+
+            gSocket.on('launchingame', function (data) {
+                //receiving user socket id
+                //console.log("launchingGame : ");
+                app.questions = data.questions;
+                var users = data.users;
+                app.t_title = data.questions[0].name;
+                app.usersAnswers = {};
+                users.forEach((element) => {
+                    app.usersAnswers[element.pseudo] = {};
+                    for (i = 0; i < app.questions.length; i++) {
+                        app.usersAnswers[element.pseudo][i] = "";
+                    }
+                    console.log(" socket id : "+element.socketid + " pseudo : " +element.pseudo);
+                });
+
+                app.gamestarted = true;
+                game(app.questions,10);
+            });
+
+            gSocket.on('alluserresults', function (all) {
+                // console.log(" all : " +all);
+
+                Object.keys(all).forEach(function(pseudo) {
+                    // key = user.pseudo value = tableau de x questions
+                    var repTabs = all[pseudo];
+                    app.v_users.push({pseudo: pseudo});
+                    Object.keys(repTabs).forEach(function(qindex) {
+                        // var reponse = repTabs[qindex];
+                        app.usersAnswers[pseudo][qindex] = repTabs[qindex];
+                        // console.log(app.usersAnswers[pseudo][qindex] + "==="+reponse);
+                    });
+                });
+
+                app.showResults = true;
+                showResults(0,app.questions);
+            });
+
+            gSocket.on('nextResult', function (qindex) {
+                console.log(" next results " + qindex);
+                showResults(qindex,app.questions);
+            });
+
+        });
+
+
+        function showResults(qindex,questions){
+
+            if ( qindex < questions.length){
+                app.qindex = qindex + 1;
+                //print questopn i
+                app.q_intitule = questions[qindex].intitule;
+                app.q_expAns = questions[qindex].expectedAns;
+
+                // Afficher les reponse de chaque user pour cette questions
+
+                app.v_reps = [];
+                for (i = 0; i < app.v_users.length; i++) {
+                    var pseudo = app.v_users[i].pseudo;
+                    // console.log(pseudo);
+                    app.v_reps.push({
+                        text : app.usersAnswers[pseudo][qindex]
+                    });
+                }
+                //wait for master next ?
+            }
+
+        }
+
+        function show(i,questions,timer){
+
+            if ( i < questions.length){
+                app.qindex = i + 1;
+                $('.progress-bar').css('width','100%');
+                app.q_intitule = questions[i].intitule;
+                app.u_answer = "";
+                console.log( "je lance la questions d'index "+i + " -> "+ questions[i].intitule );
+
+                var t = timer;
+                var counterBack = setInterval(function(){
+                    t--;
+                    // 9 8 7 6 5 4 3 2 1
+                    if (t > 0){
+                        var pc = (t/timer)*100;
+                        $('.progress-bar').css('width', pc+'%');
+                    } else {
+                        clearInterval(counterBack);
+                        //recup l'input d' l user pour cette index i la
+                        app.usersAnswers[app.pseudo][i] =  app.u_answer ;
+                        console.log( "j'ai rep -> "+ app.usersAnswers[app.pseudo][i] );
+                    }
+
+                }, 1000);
+                var ni = i + 1 ;
+                setTimeout(function () {show(ni,questions,timer);},10000);
+            }else{
+                gSocket.emit('userresults',{
+                    user : {
+                        pseudo: app.pseudo,
+                        answers : app.usersAnswers[app.pseudo],
+                        socketid: gSocket.id
+                    },
+                    roomid : room
+                });
+                console.log("RE AFFICHER CHAQUE QUESTION MAIS AVEC LES REPONSE MTN");
+            }
+
+        }
+
+        function game(questions,timer){
+            console.log( "nombre de questions : "+questions.length);
+            var i  = 0;
+            show(i,questions,timer);
+        }
+
+
+
+
+    });
+</script>
+</body>
+<!--<script src="//{{ Request::getHost() }}:6001/socket.io/socket.io.js"></script>-->
+<!--<script src="{{asset('js/app.js')}}"></script>-->
+</html>
