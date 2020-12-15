@@ -5,10 +5,10 @@ var gameroom = require('./Gameroom');
 var mysql = require('mysql');
 var pool = mysql.createPool({
     connectionLimit: 15,
-    host: "localhost",
-    user: "quizcati_root",
-    password: "+;(Dp~s(aDBf", // +;(Dp~s(aDBf
-    database : "quizcati_quizcatie"
+    host: "34.91.71.17",
+    user: "root",
+    password: "HruHff673me5aGnh", // +;(Dp~s(aDBf
+    database : "quizcatie"
 });
 var bodyParser = require('body-parser');
 
